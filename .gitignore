@@ -1,1 +1,5 @@
-terraform.tfvars
+# Terraform variable files
+*.tfvars
+
+# PEM keys
+*.pem
