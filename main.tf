@@ -60,4 +60,54 @@ resource "huaweicloud_compute_instance" "myinstance" {
 }
 
 
+resource "huaweicloud_vpc" "vpc_1" {
+  name = var.vpc_name
+  cidr = var.vpc_cidr
+}
 
+resource "huaweicloud_vpc_subnet" "subnet_1" {
+  vpc_id      = huaweicloud_vpc.vpc_1.id
+  name        = var.subnet_name
+  cidr        = var.subnet_cidr
+  gateway_ip  = var.subnet_gateway
+  primary_dns = var.primary_dns
+}
+
+data "huaweicloud_networking_secgroup" "mysecgroup" {
+  name = "default"
+}
+
+data "huaweicloud_compute_flavors" "mybiggerflavor" {
+  availability_zone = data.huaweicloud_availability_zones.myaz.names[0]
+  performance_type  = "normal"
+  cpu_core_count    = 2
+  memory_size       = 4
+}
+
+
+resource "huaweicloud_compute_instance" "mycompute" {
+  name                  = "mycompute_${count.index}"
+  image_id              = data.huaweicloud_images_image.myimage.id
+  flavor_id             = data.huaweicloud_compute_flavors.mybiggerflavor.ids[0]
+  availability_zone     = data.huaweicloud_availability_zones.myaz.names[0]
+  security_group_ids    = [data.huaweicloud_networking_secgroup.mysecgroup.id]
+  charging_mode         = "postPaid"
+  enterprise_project_id = "4e943fe2-c61e-4166-a40e-0882f7cf3d92"
+  network {
+    uuid = huaweicloud_vpc_subnet.subnet_1.id
+  }
+  count = 2
+}
+
+resource "huaweicloud_networking_vip" "vip_1" {
+  network_id = huaweicloud_vpc_subnet.subnet_1.id
+}
+
+# associate ports to the vip
+resource "huaweicloud_networking_vip_associate" "vip_associated" {
+  vip_id = huaweicloud_networking_vip.vip_1.id
+  port_ids = [
+    huaweicloud_compute_instance.mycompute[0].network.0.port,
+    huaweicloud_compute_instance.mycompute[1].network.0.port
+  ]
+}
